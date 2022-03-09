@@ -21,6 +21,7 @@ def lambda_handler(event, context):
     #get  input json and extract geojson
     try:
         project_id = json_file["project_id"]
+        ROI = json_file["ROI"]
         if "land_use_map" in json_file:
             if json_file["land_use_map"]["custom_map_url"]!="n/a":
                 default=False
@@ -41,14 +42,36 @@ def lambda_handler(event, context):
     #for aws
     path_to_tmp = "/tmp/"
 
-    s3_lambda_path = '/vsis3/lup4ldn-lambdas/'
+    s3_lambda_path = '/vsis3/lup4ldn-prod/'
     
+    gdal_warp_kwargs_target_area = {
+        'format': 'GTiff',
+        'cutlineDSName' : json.dumps(ROI),
+        'cropToCutline' : True,
+        'height' : None,
+        'width' : None,
+        'srcNodata' : -32768.0,
+        'dstNodata' : -32768.0,
+        'creationOptions' : ['COMPRESS=DEFLATE']
+    }
     
     ## DEFAULT CASE: CLASSES from land cover
     if default:
+        save_land_cover_file = path_to_tmp + "cropped_land_cover.tif"
+    
+        try:
+            #CHANGE HERE THE YEAR IF MORE YEARS ARE TO BE USED
+            gdal.Warp(save_land_cover_file,s3_lambda_path + project_id + "/cropped_land_cover.tif",**gdal_warp_kwargs_target_area)
+        except Exception as e:
+            print("if 'returned NULL without setting an error', probably at least one of the file paths is wrong")
+            return {
+                "statusCode": 500,
+                "body": e
+            }
+        
         #must use gdal.Open in order to fill the file created from gdal.Warp, else the file remaines full of nodata
         try:
-            land_cover_tif = gdal.Open(s3_lambda_path + project_id + "/cropped_land_cover.tif")
+            land_cover_tif = gdal.Open(save_land_cover_file)
             land_cover_array = land_cover_tif.ReadAsArray()
         except Exception as e:
             print(e)
@@ -109,9 +132,20 @@ def lambda_handler(event, context):
     
     ## CUSTOM CASE: CLASSES from land use
     else:
+        save_land_use_file = path_to_tmp + "cropped_land_use.tif"
+        
+        try:
+            gdal.Warp(save_land_use_file,s3_lambda_path + project_id + "/cropped_land_use.tif",**gdal_warp_kwargs_target_area)
+        except Exception as e:
+            print("if 'returned NULL without setting an error', probably at least one of the file paths is wrong")
+            return {
+                "statusCode": 500,
+                "body": e
+            }
+        
         #must use gdal.Open in order to fill the file created from gdal.Warp, else the file remaines full of nodata
         try:
-            t = gdal.Open(s3_lambda_path + project_id + "/cropped_land_use.tif")
+            t = gdal.Open(save_land_use_file)
         except Exception as e:
             print("if ''NoneType' object has no attribute', probably the file path is wrong")
             return {
