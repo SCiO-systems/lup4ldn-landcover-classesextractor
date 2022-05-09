@@ -6,13 +6,11 @@ import boto3
 from botocore.exceptions import ClientError
 import json
 import logging
-# import sys
 
 s3 = boto3.client('s3')
 
 
 
-#%%
 def lambda_handler(event, context):
     
     body = json.loads(event['body'])
@@ -22,6 +20,9 @@ def lambda_handler(event, context):
     try:
         project_id = json_file["project_id"]
         ROI = json_file["ROI"]
+        if ROI==None:
+            ROI = requests.get(json_file["ROI_file_url"])
+            ROI = json.loads(ROI.text) #.replace("'",'"')
         if "land_use_map" in json_file:
             if json_file["land_use_map"]["custom_map_url"]!="n/a":
                 default=False
@@ -36,13 +37,12 @@ def lambda_handler(event, context):
             "statusCode": 400,
             "body": e
         }
+    
 
-    #for local
-    # path_to_tmp = "/home/christos/Desktop/SCiO_Projects/lup4ldn/data/cropped_files/"
     #for aws
     path_to_tmp = "/tmp/"
 
-    s3_lambda_path = '/vsis3/lup4ldn-prod/'
+    s3_lambda_path = '/vsis3/lup4ldn-staging/'
     
     gdal_warp_kwargs_target_area = {
         'format': 'GTiff',
@@ -74,14 +74,15 @@ def lambda_handler(event, context):
             land_cover_tif = gdal.Open(save_land_cover_file)
             land_cover_array = land_cover_tif.ReadAsArray()
         except Exception as e:
-            print(e)
             print("if ''NoneType' object has no attribute', probably the file path is wrong")
+            raise(e)
         
         
         def map_land_cover_to_trendsearth_labels(array,labels_dict):
             for key in labels_dict:
                 array = np.where(array==key,labels_dict[key],array)
             return array
+            
         dict_labels_map_100m_to_trends = {
             10 : 3,
             11 : 3,
@@ -134,8 +135,15 @@ def lambda_handler(event, context):
     else:
         save_land_use_file = path_to_tmp + "cropped_land_use.tif"
         
+        def create_vsis3_url(url):
+            part1 = url.split(".s3.")[0]
+            part2 = url.split(".amazonaws.com")[1]
+            vsis3_url = (part1+part2).replace("https:/","/vsis3" )
+            return vsis3_url
+            
+        s3_lambda_path = '/vsis3/lup4ldn-staging/'
         try:
-            gdal.Warp(save_land_use_file,s3_lambda_path + project_id + "/cropped_land_use.tif",**gdal_warp_kwargs_target_area)
+            gdal.Warp(save_land_use_file,create_vsis3_url(json_file["land_use_map"]["custom_map_url"]),**gdal_warp_kwargs_target_area)
         except Exception as e:
             print("if 'returned NULL without setting an error', probably at least one of the file paths is wrong")
             return {
