@@ -41,8 +41,7 @@ def lambda_handler(event, context):
 
     #for aws
     path_to_tmp = "/tmp/"
-
-    s3_lambda_path = '/vsis3/lup4ldn-staging/'
+    s3_lambda_path = '/vsis3/lup4ldn-prod/'
     
     gdal_warp_kwargs_target_area = {
         'format': 'GTiff',
@@ -82,7 +81,6 @@ def lambda_handler(event, context):
             for key in labels_dict:
                 array = np.where(array==key,labels_dict[key],array)
             return array
-            
         dict_labels_map_100m_to_trends = {
             10 : 3,
             11 : 3,
@@ -141,7 +139,7 @@ def lambda_handler(event, context):
             vsis3_url = (part1+part2).replace("https:/","/vsis3" )
             return vsis3_url
             
-        s3_lambda_path = '/vsis3/lup4ldn-staging/'
+        s3_lambda_path = '/vsis3/lup4ldn-prod/'
         try:
             gdal.Warp(save_land_use_file,create_vsis3_url(json_file["land_use_map"]["custom_map_url"]),**gdal_warp_kwargs_target_area)
         except Exception as e:
