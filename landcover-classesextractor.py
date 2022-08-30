@@ -6,11 +6,13 @@ import boto3
 from botocore.exceptions import ClientError
 import json
 import logging
+# import sys
 
 s3 = boto3.client('s3')
 
 
 
+#%%
 def lambda_handler(event, context):
     
     body = json.loads(event['body'])
@@ -38,9 +40,12 @@ def lambda_handler(event, context):
             "body": e
         }
     
-
+    #for local
+    # path_to_tmp = "/home/christos/Desktop/SCiO_Projects/lup4ldn/data/cropped_files/"
     #for aws
     path_to_tmp = "/tmp/"
+
+    #s3_lambda_path = '/vsis3/lup4ldn-lambdas/'
     s3_lambda_path = '/vsis3/lup4ldn-prod/'
     
     gdal_warp_kwargs_target_area = {
@@ -73,8 +78,8 @@ def lambda_handler(event, context):
             land_cover_tif = gdal.Open(save_land_cover_file)
             land_cover_array = land_cover_tif.ReadAsArray()
         except Exception as e:
+            print(e)
             print("if ''NoneType' object has no attribute', probably the file path is wrong")
-            raise(e)
         
         
         def map_land_cover_to_trendsearth_labels(array,labels_dict):
@@ -141,6 +146,8 @@ def lambda_handler(event, context):
             
         s3_lambda_path = '/vsis3/lup4ldn-prod/'
         try:
+            #s3_lambda_path + project_id + "/cropped_land_use.tif"
+            # print(create_vsis3_url(json_file["land_use_map"]["custom_map_url"]))
             gdal.Warp(save_land_use_file,create_vsis3_url(json_file["land_use_map"]["custom_map_url"]),**gdal_warp_kwargs_target_area)
         except Exception as e:
             print("if 'returned NULL without setting an error', probably at least one of the file paths is wrong")
